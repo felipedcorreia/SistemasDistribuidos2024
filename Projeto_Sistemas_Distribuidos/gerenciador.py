@@ -15,12 +15,20 @@ class Gerenciador:
         print(f"Gerenciador iniciado no endereço {self.host}:{self.port}")
 
         while True:
-            client_socket, client_address = server_socket.accept()
-            threading.Thread(target=self.tratar_cliente, args=(client_socket,)).start()
+            try:
+                client_socket, client_address = server_socket.accept()
+                print(f"Conexão com cliente estabelecida de {client_address}")
+                threading.Thread(target=self.tratar_cliente, args=(client_socket,)).start()
+            except Exception as e:
+                print(f"Erro ao aceitar conexão: {e}")
 
     def tratar_cliente(self, client_socket):
-        try:
             dados = self.receber_dados(client_socket)
+            if not dados:
+                print("Nenhum dado recebido do cliente.")
+                return
+            
+            print(f"Dados recebidos do cliente: {dados}")
             mensagem = json.loads(dados.decode('utf-8'))
             print(f"Mensagem recebida do cliente: {mensagem}")
 
@@ -30,10 +38,8 @@ class Gerenciador:
                 self.escolher_servidores(client_socket, mensagem['arquivo'])
             else:
                 print("Tipo de mensagem desconhecido.")
-        except Exception as e:
-            print(f"Erro ao tratar cliente: {e}")
-        finally:
             client_socket.close()
+            print("Conexão com cliente encerrada.")
 
     def registrar_servidor(self, mensagem):
         try:
@@ -58,6 +64,7 @@ class Gerenciador:
         }
 
         self.enviar_mensagem(client_socket, resposta)
+        print(f"Servidores escolhidos: {resposta}")
 
     def receber_dados(self, client_socket, buffer_size=4096):
         dados = b''
@@ -71,6 +78,7 @@ class Gerenciador:
     def enviar_mensagem(self, client_socket, mensagem):
         mensagem_json = json.dumps(mensagem)
         client_socket.sendall(mensagem_json.encode('utf-8'))
+        print(f"Mensagem enviada: {mensagem}")
 
 if __name__ == '__main__':
     gerenciador = Gerenciador()
