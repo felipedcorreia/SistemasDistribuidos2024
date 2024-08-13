@@ -2,6 +2,7 @@ import socket
 import threading
 import json
 import os
+import base64
 
 class Servidor:
     def __init__(self, host='localhost', port=59001, gerenciador_host='localhost', gerenciador_port=5000):
@@ -9,7 +10,8 @@ class Servidor:
         self.port = port
         self.gerenciador_host = gerenciador_host
         self.gerenciador_port = gerenciador_port
-        self.diretorio_backup = r"C:\UFABC\Sitemas Distribuidos\Backup" 
+        self.diretorio_backup = r"C:\Backup1"
+        self.diretorio_backup_replicado = r"C:\Backup2"
 
     def iniciar(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -17,7 +19,6 @@ class Servidor:
         s.listen(5)
         print(f"Servidor iniciado no endereço {self.host}:{self.port}")
 
-        # Registrar servidor no gerenciador
         self.registrar_servidor()
 
         while True:
@@ -43,30 +44,43 @@ class Servidor:
     def tratar_cliente(self, client_socket):
         try:
             dados = self.receber_dados(client_socket)
-            print(f"Dados recebidos do cliente: {dados}")
             mensagem = json.loads(dados.decode('utf-8'))
             print(f"Mensagem recebida do cliente: {mensagem}")
 
-            if mensagem['tipo'] == 'backup':
-                self.salvar_arquivo(mensagem['arquivo'], mensagem['conteudo'])
+            if isinstance(mensagem, dict):
+                if mensagem['tipo'] == 'backup':
+                    print(f"Tratando backup para o arquivo: {mensagem['arquivo']}")
+                    conteudo_decodificado = base64.b64decode(mensagem['conteudo'])
+                    self.salvar_arquivo(mensagem['arquivo'], conteudo_decodificado)
+                else:
+                    print(f"Tipo de mensagem desconhecido: {mensagem['tipo']}")
+            else:
+                print(f"Erro: A mensagem não é um dicionário, mas sim {type(mensagem)}.")
         except Exception as e:
             print(f"Erro ao tratar cliente: {e}")
-        finally:
-            client_socket.close()
 
     def salvar_arquivo(self, nome_arquivo, conteudo):
         try:
-            caminho_arquivo = os.path.join(self.diretorio_backup, nome_arquivo)
-            with open(caminho_arquivo, 'wb') as f:
+            # Salva no diretório de backup principal
+            caminho_backup = os.path.join(self.diretorio_backup, nome_arquivo)
+            with open(caminho_backup, 'wb') as f:
                 f.write(conteudo)
-            print(f"Arquivo {nome_arquivo} salvo com sucesso no diretório {self.diretorio_backup}.")
+            print(f"Arquivo {nome_arquivo} salvo em {self.diretorio_backup}")
+
+            # Salva no diretório de backup replicado
+            caminho_replicado = os.path.join(self.diretorio_backup_replicado, nome_arquivo)
+            with open(caminho_replicado, 'wb') as f:
+                f.write(conteudo)
+            print(f"Arquivo {nome_arquivo} salvo em {self.diretorio_backup_replicado}")
+
         except Exception as e:
             print(f"Erro ao salvar arquivo {nome_arquivo}: {e}")
 
-    def receber_dados(self, client_socket, buffer_size=4096):
+    def receber_dados(self, client_socket):
+        tamanho_conteudo = int.from_bytes(client_socket.recv(8), 'big')
         dados = b''
-        while True:
-            parte = client_socket.recv(buffer_size)
+        while len(dados) < tamanho_conteudo:
+            parte = client_socket.recv(4096)
             if not parte:
                 break
             dados += parte

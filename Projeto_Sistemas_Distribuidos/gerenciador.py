@@ -23,23 +23,26 @@ class Gerenciador:
                 print(f"Erro ao aceitar conexão: {e}")
 
     def tratar_cliente(self, client_socket):
-            dados = self.receber_dados(client_socket)
-            if not dados:
-                print("Nenhum dado recebido do cliente.")
-                return
-            
-            print(f"Dados recebidos do cliente: {dados}")
-            mensagem = json.loads(dados.decode('utf-8'))
-            print(f"Mensagem recebida do cliente: {mensagem}")
+        dados = self.receber_dados(client_socket)
+        if not dados:
+            print("Nenhum dado recebido do cliente.")
+            return
 
-            if mensagem['tipo'] == 'registro':
-                self.registrar_servidor(mensagem)
-            elif mensagem['tipo'] == 'backup':
-                self.escolher_servidores(client_socket, mensagem['arquivo'])
-            else:
-                print("Tipo de mensagem desconhecido.")
-            client_socket.close()
-            print("Conexão com cliente encerrada.")
+        print(f"Dados recebidos do cliente: {dados}")
+        mensagem = json.loads(dados.decode('utf-8'))
+        print(f"Mensagem decodificada: {mensagem}")
+
+        if mensagem['tipo'] == 'registro':
+            self.registrar_servidor(mensagem)
+        elif mensagem['tipo'] == 'backup':
+            if mensagem['conteudo'] is None:
+                print("Aviso: O conteúdo do arquivo é None. Continuando com a escolha do servidor.")
+            self.escolher_servidores(client_socket, mensagem['arquivo'])
+        else:
+            print("Tipo de mensagem desconhecido.")
+        client_socket.close()
+        print("Conexão com cliente encerrada.")
+
 
     def registrar_servidor(self, mensagem):
         try:
@@ -67,18 +70,24 @@ class Gerenciador:
         print(f"Servidores escolhidos: {resposta}")
 
     def receber_dados(self, client_socket, buffer_size=4096):
+        print(f"receber_dados")
         dados = b''
-        while True:
-            parte = client_socket.recv(buffer_size)
-            if not parte:
-                break
-            dados += parte
+        # while True:
+        parte = client_socket.recv(buffer_size)
+          #   if not parte:
+            #     break
+        dados += parte
+        print(f"Dados completos recebidos: {dados}")
         return dados
 
     def enviar_mensagem(self, client_socket, mensagem):
-        mensagem_json = json.dumps(mensagem)
-        client_socket.sendall(mensagem_json.encode('utf-8'))
-        print(f"Mensagem enviada: {mensagem}")
+        try:
+            mensagem_json = json.dumps(mensagem)
+            client_socket.sendall(mensagem_json.encode('utf-8'))
+            print(f"Mensagem enviada para o cliente: {mensagem_json}")
+        except Exception as e:
+            print(f"Erro ao enviar mensagem para o cliente: {e}")
+
 
 if __name__ == '__main__':
     gerenciador = Gerenciador()
